@@ -1,3 +1,5 @@
+#include <rom/rtc.h>
+
 #ifndef ARDUINO_H
 #include <Arduino.h>
 #endif 
@@ -9,6 +11,11 @@
 #ifndef ARDUINOJSON_H
 #include <ArduinoJson.h>
 #endif
+
+#ifndef STDIO_H
+#include <stdio.h>
+#endif
+
 
 #ifndef _WIFI_H 
 #include <WiFi.h>
@@ -35,10 +42,10 @@
 //--Sensor Pins -------------------
 #define DHT_PIN 32
 #define DHT_TYPE DHT22
-#define SOIL_PIN 14
+#define SOIL_PIN 34
 
 #define SOIL_DRY_VALUE 2200
-#define SOIL_WET_VALUE 480
+#define SOIL_WET_VALUE 550
 
 #define READ_INTERVAL_MS 3000
 
@@ -75,6 +82,24 @@ WeatherData data;
 unsigned long lastReadTime = 0;
 bool displayInitialized = false;
 
+// MQTT CLIENT CONFIG  
+static const char* pubtopic      = "620172489";                    // Add your ID number here
+static const char* subtopic[]    = {"620172489_sub","/elet2415"};  // Array of Topics(Strings) to subscribe to
+static const char* mqtt_server   = "www.yanacreations.com";         // Broker IP address or Domain name as a String 
+static uint16_t mqtt_port        = 1883;
+
+// WIFI CREDENTIALS
+const char* ssid       = "MonaConnect"; // Add your Wi-Fi ssid
+const char* password   = ""; // Add your Wi-Fi password 
+
+
+// TASK HANDLES 
+TaskHandle_t xMQTT_Connect          = NULL; 
+TaskHandle_t xNTPHandle             = NULL;  
+TaskHandle_t xLOOPHandle            = NULL;  
+TaskHandle_t xUpdateHandle          = NULL;
+TaskHandle_t xButtonCheckeHandle    = NULL; 
+
 // -- Function Prototypes --------------------------------------
 void initDisplay();
 void drawStaticUI();
@@ -83,6 +108,24 @@ void readSensors(WeatherData &d);
 void drawHeader();
 int  readSoilPercent(int rawADC);
 uint16_t soilColour(int pct);
+
+void checkHEAP(const char* Name);   // RETURN REMAINING HEAP SIZE FOR A TASK
+void initMQTT(void);                // CONFIG AND INITIALIZE MQTT PROTOCOL
+unsigned long getTimeStamp(void);   // GET 10 DIGIT TIMESTAMP FOR CURRENT TIME
+void callback(char* topic, byte* payload, unsigned int length);
+void initialize(void);
+void publish(const WeatherData &d, unsigned long timestamp); // PUBLISH MQTT MESSAGE(PAYLOAD) TO A TOPIC
+void vButtonCheck( void * pvParameters );
+void vUpdate( void * pvParameters ); 
+
+//############### IMPORT HEADER FILES ##################
+#ifndef NTP_H
+#include "NTP.h"
+#endif
+
+#ifndef MQTT_H
+#include "mqtt.h"
+#endif
 
 void setup() {
   Serial.begin(115200);
@@ -127,26 +170,72 @@ void setup() {
   drawStaticUI();
 
   // Initial sensor read
-  readSensors(data);
-  updateDisplay(data);
-  lastReadTime = millis();
+  initialize();
 }
 
 void loop() {
-  unsigned long now = millis();
-  if (now - lastReadTime >= READ_INTERVAL_MS) {
-    readSensors(data);
-    updateDisplay(data);
-    lastReadTime = now;
+   vTaskDelay(1000 / portTICK_PERIOD_MS);
+}
 
-    // Serial Monitor output for debugging
-    Serial.printf("BMP  Temp: %.1fC  Press: %.1f hPa  Alt: %.1f m\n",
-                  data.temperature_c, data.pressure_hpa, data.altitude_m);
-    Serial.printf("DHT  Temp: %.1fC  Hum: %.1f%%  HeatIdx: %.1fC\n",
-                  data.dht_temp_c, data.humidity_pct, data.heat_index_c);
-    Serial.printf("Soil Moisture: %d%%\n\n", data.soil_moisture_pct);
-    Serial.printf("Raw ADC: %d\n", analogRead(SOIL_PIN));
-  }
+void vButtonCheck(void* pvParameters) {
+    configASSERT(((uint32_t)pvParameters) == 1);
+    for (;;) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+    String msg = "";
+    for (int i = 0; i < length; i++) msg += (char)payload[i];
+    Serial.printf("[MQTT] Message on %s: %s\n", topic, msg.c_str());
+    //
+}
+
+void publish(const WeatherData &d, unsigned long timestamp) {
+    if (!mqtt.connected()) return;
+
+    time_t now;
+    time(&now);
+
+    JsonDocument doc;
+    doc["id"]         = "620172489";
+    doc["timestamp"]         = (unsigned long)now;
+    doc["temperature_c"]     = round(d.temperature_c * 10) / 10.0;
+    doc["pressure_hpa"]      = round(d.pressure_hpa  * 10) / 10.0;
+    doc["altitude_m"]        = round(d.altitude_m    * 10) / 10.0;
+    doc["dht_temp_c"]        = round(d.dht_temp_c    * 10) / 10.0;
+    doc["humidity_pct"]      = round(d.humidity_pct  * 10) / 10.0;
+    doc["heat_index_c"]      = round(d.heat_index_c  * 10) / 10.0;
+    doc["soil_moisture_pct"] = d.soil_moisture_pct;
+
+    char message[256];
+    serializeJson(doc, message);
+    mqtt.publish(pubtopic, message);
+    Serial.printf("[MQTT] Published: %s\n", message);
+}
+
+void vUpdate(void* pvParameters) {
+    configASSERT(((uint32_t)pvParameters) == 1);
+
+    for (;;) {
+        if (mqtt.connected()) {
+            readSensors(data);
+            updateDisplay(data);
+
+            // Get NTP timestamp
+            time_t now;
+            time(&now);
+            publish(data, (unsigned long)now);
+
+            Serial.printf("BMP  Temp: %.1fC  Press: %.1f hPa  Alt: %.1f m\n",
+                          data.temperature_c, data.pressure_hpa, data.altitude_m);
+            Serial.printf("DHT  Temp: %.1fC  Hum: %.1f%%  HeatIdx: %.1fC\n",
+                          data.dht_temp_c, data.humidity_pct, data.heat_index_c);
+            Serial.printf("Soil: %d%%\n\n", data.soil_moisture_pct);
+            Serial.printf("Raw ADC: %d\n\n", analogRead(SOIL_PIN));
+        }
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+    }
 }
 
 void readSensors(WeatherData &d) {

@@ -84,10 +84,16 @@ class MQTT:
         try:
             topic   = msg.topic
             payload = msg.payload.decode("utf-8")
-            #print(payload) # UNCOMMENT WHEN DEBUGGING  
+            print(payload) # UNCOMMENT WHEN DEBUGGING  
             
             update  = loads(payload) # CONVERT FROM JSON STRING TO JSON OBJECT  
             print(update) 
+
+            result = self.mongo.update(update)
+            if result:
+                print("[DB] Saved to MongoDB successfully.")
+            else:
+                print("[DB] Failed to save to MongoDB.")
 
         except Exception as e:
             print(f"MQTT: GDP Error: {str(e)}")

@@ -26,12 +26,64 @@ from math import floor
 #####################################
 
 
+@app.route('/api/range/get/<start>/<end>', methods=['GET'])
+def get_range(start, end):
+    '''Returns readings between two timestamps
+    '''
+    if request.method == "GET":
+        try:
+            START = escape(start)
+            END = escape(end)
+            data = mongo.getRange(START, END)
+            if data:
+                return jsonify({"status": "found", "data":data})
+            
+        except Exception as e:
+            print(f"get_range error: f{str(e)}")
 
+    # FILE DATA NOT EXIST
+    return jsonify({"status":"not found","data":[]})
+
+@app.route('/api/mmar/field', methods=['GET']) 
+def get_field_mmar():   
+    '''RETURNS MIN, MAX, AVG AND RANGE FOR EACH FIELD. THAT FALLS WITHIN THE START AND END DATE RANGE'''
    
+    field = request.args.get('field')
+    start = request.args.get('start')
+    end   = request.args.get('end')
 
+    if not all([field, start, end]):
+        return jsonify({"error": "field, start and end are required"}), 400
 
+    result = mongo.getFieldMMARByTimestamp(field, start, end)
+    if result is None:
+        return jsonify({"error": "No data found for that range"}), 404
+    return jsonify(result), 200
 
+@app.route('/api/stats/distribution', methods=['GET'])
+def get_distribution():
+    '''Returns frequency distribution for a field between two timestamps.
+    '''
+    valid_fields = [
+        "temperature_c", "pressure_hpa", "altitude_m",
+        "dht_temp_c", "humidity_pct", "heat_index_c", "soil_moisture_pct"
+    ]
 
+    field = request.args.get('field')
+    start = request.args.get('start')
+    end   = request.args.get('end')
+
+    if not all([field, start, end]):
+        return jsonify({"error": "field, start and end are required"}), 400
+
+    if field not in valid_fields:
+        return jsonify({"error": f"Invalid field. Choose from: {valid_fields}"}), 400
+
+    result = mongo.getFrequencyDistro(field, start, end)
+    if result is None:
+        return jsonify({"error": "No data found"}), 404
+    return jsonify(result), 200
+   
 
 
 @app.route('/api/file/get/<filename>', methods=['GET']) 
