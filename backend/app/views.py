@@ -83,6 +83,21 @@ def get_distribution():
     if result is None:
         return jsonify({"error": "No data found"}), 404
     return jsonify(result), 200
+
+@app.route('/api/latest', methods=['GET'])
+def get_latest():
+    '''Returns the most recent sensor reading'''
+    doc = mongo.getLatest()
+    if not doc:
+        return jsonify({"error": "No data found"}), 404
+    return jsonify(doc), 200
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    '''Returns last N readings, newest first'''
+    limit = int(request.args.get('limit', 50))
+    docs  = mongo.getHistory(limit)
+    return jsonify(docs), 200
    
 
 

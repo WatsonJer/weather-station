@@ -125,6 +125,34 @@ class DB:
             return None
         return result
 
+    def getLatest(self):
+        try:
+            remotedb = self.remoteMongo(
+                'mongodb://%s:%s@%s:%s' % (self.username, self.password, self.server, self.port),
+                tls=self.tls
+            )
+        # Ensure you are using the correct database and collection names!
+            doc = remotedb.ELET2415.weather.find_one(sort=[("timestamp", -1)],projection={"_id": 0})
+        
+                      
+            return doc
+        except Exception as e:
+            print("getLatest error:", str(e)) # Look at your Flask terminal for this!
+            return None
+        
+    def getHistory(self, limit=50):
+        '''Return last N readings, newest first'''
+        try:
+            remotedb = self.remoteMongo(
+                'mongodb://%s:%s@%s:%s' % (self.username, self.password, self.server, self.port),
+                tls=self.tls
+            )
+            docs = list(remotedb.ELET2415.weather.find({}, {"_id":0}).sort("timestamp", -1).limit(limit))
+            return docs
+        except Exception as e:
+            print("getHistory error:", str(e))
+            return []
+
     
     
 

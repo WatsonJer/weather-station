@@ -16,6 +16,29 @@
           </RouterLink>
 
           <!-- Add Links Below -->
+          <RouterLink class="route" :to="{ name: 'Dashboard' }">
+            <VBtn
+              class="text-subtitle-2"
+              density="compact"
+              color="primary"
+              :variant="route.name === 'Dashboard' ? 'tonal' : 'text'"
+            >
+              <VIcon icon="mdi-view-dashboard" size="14" class="mr-1" />
+              Dashboard
+            </VBtn>
+          </RouterLink>
+
+          <RouterLink class="route" :to="{ name: 'Analysis' }">
+            <VBtn
+              class="text-subtitle-2"
+              density="compact"
+              color="primary"
+              :variant="route.name === 'Analysis' ? 'tonal' : 'text'"
+            >
+              <VIcon icon="mdi-view-dashboard" size="14" class="mr-1" />
+              Analysis
+            </VBtn>
+          </RouterLink>
         </VCol>
         <VCol cols="1" align="right">
           <VBtn
