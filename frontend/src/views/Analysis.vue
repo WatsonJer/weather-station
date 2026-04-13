@@ -9,13 +9,11 @@
         </VCol>
       </VRow>
 
-      <!-- Row 1: Date inputs + MMAR stat cards -->
+      <!-- Row 1: Date picker + MMAR stat cards -->
       <VRow class="mb-4" align="stretch">
-        <!-- Date picker panel -->
         <VCol cols="12" md="3">
           <div class="panel">
             <div class="panel-label">DATE RANGE</div>
-
             <div class="field-group">
               <label class="field-label">Start Date</label>
               <input v-model="start" type="date" class="date-input" />
@@ -24,30 +22,30 @@
               <label class="field-label">End Date</label>
               <input v-model="end" type="date" class="date-input" />
             </div>
-
             <div v-if="errorText" class="msg msg-error mt-3">
               {{ errorText }}
             </div>
             <div v-if="statusText" class="msg msg-status mt-2">
               {{ statusText }}
             </div>
-
             <button
               class="btn-analyze mt-4"
               :class="{ loading }"
               @click="runAnalysis"
               :disabled="loading"
             >
-              <span v-if="!loading">
-                <VIcon icon="mdi-chart-line" size="16" class="mr-1" />
-                Analyze
-              </span>
+              <span v-if="!loading"
+                ><VIcon
+                  icon="mdi-chart-line"
+                  size="16"
+                  class="mr-1"
+                />Analyze</span
+              >
               <span v-else class="spinner"></span>
             </button>
           </div>
         </VCol>
 
-        <!-- MMAR Stat cards -->
         <VCol cols="12" md="9">
           <VRow class="h-100">
             <VCol
@@ -63,12 +61,8 @@
                   <span class="stat-card-title">{{ card.label }}</span>
                   <span class="stat-card-unit">{{ card.unit }}</span>
                 </div>
-
-                <div class="stat-avg">
-                  {{ card.stats.avg ?? "—" }}
-                </div>
+                <div class="stat-avg">{{ card.stats.avg ?? "—" }}</div>
                 <div class="stat-sub">avg</div>
-
                 <div class="stat-pills">
                   <div class="stat-pill">
                     <span class="pill-label">MIN</span>
@@ -103,7 +97,7 @@
         </VCol>
       </VRow>
 
-      <!-- Row 3: Pressure + Soil line charts -->
+      <!-- Row 3: Pressure + Soil -->
       <VRow class="mb-4">
         <VCol cols="12" lg="7">
           <div class="chart-card">
@@ -117,7 +111,7 @@
         </VCol>
       </VRow>
 
-      <!-- Row 4: Frequency Distribution histogram -->
+      <!-- Row 4: Histogram -->
       <VRow class="mb-4">
         <VCol cols="12">
           <div class="chart-card">
@@ -126,7 +120,7 @@
         </VCol>
       </VRow>
 
-      <!-- Row 5: Scatter plots -->
+      <!-- Row 5: Scatter -->
       <VRow class="mb-4">
         <VCol cols="12" md="6">
           <div class="chart-card">
@@ -154,7 +148,6 @@ more(Highcharts);
 
 const store = useAppStore();
 
-// ── State ──────────────────────────────────────────────────────
 const start = ref("");
 const end = ref("");
 const loading = ref(false);
@@ -170,7 +163,6 @@ const mmar = reactive({
   altitude_m: { min: null, max: null, avg: null, range: null },
 });
 
-// ── Stat card definitions ──────────────────────────────────────
 const statCards = computed(() => [
   {
     field: "temperature_c",
@@ -222,7 +214,6 @@ const statCards = computed(() => [
   },
 ]);
 
-// ── Highcharts shared dark theme ───────────────────────────────
 const HC = {
   chart: {
     backgroundColor: "transparent",
@@ -233,52 +224,60 @@ const HC = {
     style: {
       color: "#f0f4ff",
       fontFamily: "'Syne', sans-serif",
-      fontSize: "14px",
+      fontSize: "15px",
       fontWeight: "700",
     },
     align: "left",
   },
   subtitle: {
-    style: { color: "rgba(200,215,240,0.4)", fontSize: "11px" },
+    style: { color: "rgba(200,215,240,0.55)", fontSize: "12px" },
     align: "left",
   },
   xAxis: {
-    labels: { style: { color: "rgba(200,215,240,0.4)", fontSize: "10px" } },
-    gridLineColor: "rgba(255,255,255,0.05)",
-    lineColor: "rgba(255,255,255,0.08)",
-    tickColor: "rgba(255,255,255,0.08)",
+    labels: { style: { color: "rgba(200,215,240,0.65)", fontSize: "11px" } },
+    gridLineColor: "rgba(255,255,255,0.06)",
+    lineColor: "rgba(255,255,255,0.12)",
+    tickColor: "rgba(255,255,255,0.12)",
   },
   yAxis: {
-    labels: { style: { color: "rgba(200,215,240,0.4)", fontSize: "10px" } },
-    gridLineColor: "rgba(255,255,255,0.05)",
-    title: { style: { color: "rgba(200,215,240,0.4)", fontSize: "11px" } },
+    labels: { style: { color: "rgba(200,215,240,0.65)", fontSize: "11px" } },
+    gridLineColor: "rgba(255,255,255,0.06)",
+    title: {
+      style: {
+        color: "rgba(200,215,240,0.7)",
+        fontSize: "12px",
+        fontWeight: "500",
+      },
+    },
   },
   tooltip: {
-    backgroundColor: "rgba(6,13,31,0.95)",
-    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(6,13,31,0.97)",
+    borderColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
-    style: { color: "#f0f4ff", fontSize: "12px" },
+    style: { color: "#f0f4ff", fontSize: "13px" },
     shared: true,
   },
   legend: {
-    itemStyle: { color: "rgba(200,215,240,0.5)", fontSize: "11px" },
+    itemStyle: {
+      color: "rgba(200,215,240,0.8)",
+      fontSize: "12px",
+      fontWeight: "500",
+    },
     itemHoverStyle: { color: "#f0f4ff" },
   },
   credits: { enabled: false },
   exporting: { enabled: false },
 };
 
-// ── Chart instances ────────────────────────────────────────────
-let hcTempLine = null;
-let hcHumLine = null;
-let hcPressLine = null;
-let hcSoilLine = null;
-let hcHistogram = null;
-let hcScatter1 = null;
-let hcScatter2 = null;
+let hcTempLine = null,
+  hcHumLine = null,
+  hcPressLine = null,
+  hcSoilLine = null,
+  hcHistogram = null,
+  hcScatter1 = null,
+  hcScatter2 = null;
 
 function initCharts() {
-  // Temperature & Heat Index line
   hcTempLine = Highcharts.chart("hc-temp-line", {
     ...HC,
     chart: { ...HC.chart, zoomType: "x" },
@@ -317,7 +316,6 @@ function initCharts() {
     ],
   });
 
-  // Humidity line
   hcHumLine = Highcharts.chart("hc-hum-line", {
     ...HC,
     chart: { ...HC.chart, zoomType: "x" },
@@ -352,7 +350,6 @@ function initCharts() {
     ],
   });
 
-  // Pressure + Altitude dual axis
   hcPressLine = Highcharts.chart("hc-press-line", {
     ...HC,
     chart: { ...HC.chart, zoomType: "x" },
@@ -400,7 +397,6 @@ function initCharts() {
     ],
   });
 
-  // Soil moisture line
   hcSoilLine = Highcharts.chart("hc-soil-line", {
     ...HC,
     chart: { ...HC.chart, zoomType: "x" },
@@ -432,21 +428,19 @@ function initCharts() {
     ],
   });
 
-  // Frequency distribution histogram
   hcHistogram = Highcharts.chart("hc-histogram", {
     ...HC,
     chart: { ...HC.chart, type: "column" },
     title: { ...HC.title, text: "Frequency Distribution" },
     subtitle: {
       ...HC.subtitle,
-      text: "Count of readings falling in each 10-unit bucket across all sensor fields",
+      text: "Count of readings in each 10-unit bucket — Temperature, Humidity, Heat Index",
     },
     xAxis: {
       ...HC.xAxis,
       title: {
-        ...HC.xAxis.title,
         text: "Value Range",
-        style: { color: "rgba(200,215,240,0.4)" },
+        style: { color: "rgba(200,215,240,0.65)", fontSize: "12px" },
       },
       categories: [],
     },
@@ -459,7 +453,6 @@ function initCharts() {
     ],
   });
 
-  // Scatter: Temperature vs Heat Index
   hcScatter1 = Highcharts.chart("hc-scatter1", {
     ...HC,
     chart: { ...HC.chart, type: "scatter", zoomType: "xy" },
@@ -471,9 +464,8 @@ function initCharts() {
     xAxis: {
       ...HC.xAxis,
       title: {
-        ...HC.xAxis.title,
         text: "Temperature (°C)",
-        style: { color: "rgba(200,215,240,0.4)" },
+        style: { color: "rgba(200,215,240,0.65)", fontSize: "12px" },
       },
     },
     yAxis: {
@@ -502,7 +494,6 @@ function initCharts() {
     ],
   });
 
-  // Scatter: Humidity vs Heat Index
   hcScatter2 = Highcharts.chart("hc-scatter2", {
     ...HC,
     chart: { ...HC.chart, type: "scatter", zoomType: "xy" },
@@ -514,9 +505,8 @@ function initCharts() {
     xAxis: {
       ...HC.xAxis,
       title: {
-        ...HC.xAxis.title,
         text: "Humidity (%)",
-        style: { color: "rgba(200,215,240,0.4)" },
+        style: { color: "rgba(200,215,240,0.65)", fontSize: "12px" },
       },
     },
     yAxis: {
@@ -569,36 +559,29 @@ function updateLineCharts(data) {
     hum.push([x, fmt(row.humidity_pct)]);
     press.push([x, fmt(row.pressure_hpa)]);
     alt.push([x, fmt(row.altitude_m)]);
-    soil.push([
-      x,
-      row.soil_moisture_pct != null ? row.soil_moisture_pct : null,
-    ]);
+    soil.push([x, row.soil_moisture_pct ?? null]);
   });
-
   hcTempLine.series[0].setData(temp, false);
   hcTempLine.series[1].setData(hi, false);
   hcTempLine.series[2].setData(dht, true);
-
   hcHumLine.series[0].setData(hum, true);
-
   hcPressLine.series[0].setData(press, false);
   hcPressLine.series[1].setData(alt, true);
-
   hcSoilLine.series[0].setData(soil, true);
 }
 
 function updateHistogram(distros) {
   const fields = ["temperature_c", "humidity_pct", "heat_index_c"];
-
   const sample = distros[fields.find((f) => distros[f]?.length)] || [];
   const categories = sample.map((b) =>
     b._id === "outliers" ? "outliers" : `${b._id}–${b._id + 10}`,
   );
   hcHistogram.xAxis[0].setCategories(categories, false);
-
   fields.forEach((field, i) => {
-    const series = (distros[field] || []).map((b) => b.count);
-    hcHistogram.series[i].setData(series, i === fields.length - 1);
+    hcHistogram.series[i].setData(
+      (distros[field] || []).map((b) => b.count),
+      i === fields.length - 1,
+    );
   });
 }
 
@@ -616,9 +599,8 @@ function updateScatterPlots(data) {
 }
 
 async function updateMMAR(startTs, endTs) {
-  const fields = Object.keys(mmar);
   await Promise.all(
-    fields.map(async (field) => {
+    Object.keys(mmar).map(async (field) => {
       const result = await store.fetchStats(field, startTs, endTs);
       if (result) {
         mmar[field].min = fmt(result.min);
@@ -633,15 +615,12 @@ async function updateMMAR(startTs, endTs) {
 async function runAnalysis() {
   errorText.value = "";
   statusText.value = "";
-
   if (!start.value || !end.value) {
     errorText.value = "Please select both a start and end date.";
     return;
   }
-
   const startTs = new Date(`${start.value}T00:00:00`).getTime() / 1000;
   const endTs = new Date(`${end.value}T23:59:59`).getTime() / 1000;
-
   if (startTs > endTs) {
     errorText.value = "Start date cannot be after end date.";
     return;
@@ -649,36 +628,26 @@ async function runAnalysis() {
 
   loading.value = true;
   statusText.value = "Fetching data…";
-
   try {
-    // 1. Fetch range data + MMAR + distribution in parallel
     const distroFields = ["temperature_c", "humidity_pct", "heat_index_c"];
-
     const [rangeData, ...distros] = await Promise.all([
       store.fetchRange(startTs, endTs),
       ...distroFields.map((f) => store.fetchDistribution(f, startTs, endTs)),
     ]);
-
     await updateMMAR(startTs, endTs);
-
     if (!rangeData || rangeData.length === 0) {
       statusText.value = "No records found for the selected range.";
       loading.value = false;
       return;
     }
-
-    // Sort by timestamp ascending
     const sorted = [...rangeData].sort((a, b) => a.timestamp - b.timestamp);
-
     const distroMap = {};
     distroFields.forEach((f, i) => {
       distroMap[f] = distros[i] || [];
     });
-
     updateLineCharts(sorted);
     updateHistogram(distroMap);
     updateScatterPlots(sorted);
-
     statusText.value = `${sorted.length} records loaded.`;
   } catch (e) {
     errorText.value = "Failed to load data. Check backend connection.";
@@ -688,11 +657,9 @@ async function runAnalysis() {
   }
 }
 
-// ── Lifecycle ──────────────────────────────────────────────────
 onMounted(() => {
   initCharts();
 });
-
 onBeforeUnmount(() => {
   [
     hcTempLine,
@@ -707,21 +674,20 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap");
 
 .analysis-wrapper {
   min-height: 100vh;
   background: #060d1f;
   font-family: "DM Sans", sans-serif;
 }
-
-/* ── Header ── */
 .dash-eyebrow {
   font-size: 11px;
   letter-spacing: 3px;
-  color: rgba(200, 215, 240, 0.35);
+  color: rgba(200, 215, 240, 0.45);
   text-transform: uppercase;
   margin-bottom: 4px;
+  font-weight: 500;
 }
 .dash-title {
   font-family: "Syne", sans-serif;
@@ -730,21 +696,20 @@ onBeforeUnmount(() => {
   color: #f0f4ff;
   letter-spacing: -1px;
 }
-
-/* ── Date panel ── */
 .panel {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 16px;
   padding: 24px 20px;
   height: 100%;
 }
 .panel-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 3px;
-  color: rgba(200, 215, 240, 0.3);
+  color: rgba(200, 215, 240, 0.45);
   text-transform: uppercase;
   margin-bottom: 20px;
+  font-weight: 500;
 }
 .field-group {
   display: flex;
@@ -752,18 +717,20 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 .field-label {
-  font-size: 11px;
-  letter-spacing: 1px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: rgba(200, 215, 240, 0.4);
+  color: rgba(200, 215, 240, 0.65);
 }
 .date-input {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
   color: #f0f4ff;
   font-family: "DM Sans", sans-serif;
   font-size: 14px;
+  font-weight: 500;
   padding: 10px 14px;
   width: 100%;
   outline: none;
@@ -773,29 +740,28 @@ onBeforeUnmount(() => {
 .date-input:focus {
   border-color: #4ecdc4;
 }
-
 .msg {
-  font-size: 12px;
+  font-size: 13px;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 9px 13px;
+  font-weight: 500;
 }
 .msg-error {
   background: rgba(255, 107, 107, 0.12);
   color: #ff6b6b;
-  border: 1px solid rgba(255, 107, 107, 0.25);
+  border: 1px solid rgba(255, 107, 107, 0.3);
 }
 .msg-status {
   background: rgba(78, 205, 196, 0.08);
-  color: rgba(200, 215, 240, 0.6);
-  border: 1px solid rgba(78, 205, 196, 0.15);
+  color: rgba(200, 215, 240, 0.75);
+  border: 1px solid rgba(78, 205, 196, 0.2);
 }
-
 .btn-analyze {
   width: 100%;
   background: linear-gradient(135deg, #4ecdc4, #45b7d1);
   color: #060d1f;
   font-family: "DM Sans", sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
   padding: 12px 20px;
   border-radius: 50px;
@@ -815,7 +781,6 @@ onBeforeUnmount(() => {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
 .spinner {
   width: 18px;
   height: 18px;
@@ -830,11 +795,9 @@ onBeforeUnmount(() => {
     transform: rotate(360deg);
   }
 }
-
-/* ── MMAR stat cards ── */
 .stat-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-top: 2px solid var(--accent);
   border-radius: 14px;
   padding: 18px 16px;
@@ -842,7 +805,7 @@ onBeforeUnmount(() => {
   transition: all 0.25s;
 }
 .stat-card:hover {
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.07);
   transform: translateY(-2px);
 }
 .stat-card-header {
@@ -852,15 +815,16 @@ onBeforeUnmount(() => {
   margin-bottom: 12px;
 }
 .stat-card-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(200, 215, 240, 0.6);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(200, 215, 240, 0.8);
   flex: 1;
 }
 .stat-card-unit {
-  font-size: 10px;
-  color: rgba(200, 215, 240, 0.3);
-  letter-spacing: 1px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(200, 215, 240, 0.5);
+  letter-spacing: 0.5px;
 }
 .stat-avg {
   font-family: "Syne", sans-serif;
@@ -873,7 +837,7 @@ onBeforeUnmount(() => {
   font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: rgba(200, 215, 240, 0.3);
+  color: rgba(200, 215, 240, 0.4);
   margin-top: 2px;
   margin-bottom: 14px;
 }
@@ -883,30 +847,29 @@ onBeforeUnmount(() => {
 }
 .stat-pill {
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-  padding: 6px 4px;
+  padding: 7px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 .pill-label {
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: rgba(200, 215, 240, 0.3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(200, 215, 240, 0.5);
 }
 .pill-val {
   font-family: "Syne", sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #f0f4ff;
 }
-
-/* ── Chart cards ── */
 .chart-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 16px;
   padding: 20px;
   height: 100%;

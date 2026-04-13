@@ -39,6 +39,18 @@
               Analysis
             </VBtn>
           </RouterLink>
+
+          <RouterLink class="route" :to="{ name: 'Control' }">
+            <VBtn
+              class="text-subtitle-2 nav-btn"
+              density="compact"
+              color="warning"
+              :variant="route.name === 'Control' ? 'tonal' : 'text'"
+            >
+              <VIcon icon="mdi-tune-variant" size="14" class="mr-1" />
+              Control
+            </VBtn>
+          </RouterLink>
         </VCol>
         <VCol cols="1" align="right">
           <VBtn

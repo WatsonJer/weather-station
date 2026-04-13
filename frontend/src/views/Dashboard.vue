@@ -1,7 +1,6 @@
 <template>
   <div class="dash-wrapper">
     <VContainer fluid class="pa-4 pa-md-6">
-      <!-- Header -->
       <VRow align="center" class="mb-4">
         <VCol>
           <div class="dash-eyebrow">LIVE MONITORING</div>
@@ -19,8 +18,7 @@
             @click="fetchAll"
             :loading="loading"
           >
-            <VIcon icon="mdi-refresh" size="16" class="mr-1" />
-            Refresh
+            <VIcon icon="mdi-refresh" size="16" class="mr-1" />Refresh
           </VBtn>
         </VCol>
       </VRow>
@@ -35,15 +33,13 @@
               class="kpi-icon"
             />
             <div class="kpi-value">
-              {{ kpi.value ?? "—" }}
-              <span class="kpi-unit">{{ kpi.unit }}</span>
+              {{ kpi.value ?? "—" }}<span class="kpi-unit">{{ kpi.unit }}</span>
             </div>
             <div class="kpi-label">{{ kpi.label }}</div>
           </div>
         </VCol>
       </VRow>
 
-      <!--row 1: Temperature/HeatIndex and Humidity -->
       <VRow class="mb-4">
         <VCol cols="12" md="7">
           <div class="chart-card">
@@ -57,7 +53,6 @@
         </VCol>
       </VRow>
 
-      <!--row 2: Pressure/Altitude live and Soil Fluid Meter -->
       <VRow class="mb-4">
         <VCol cols="12" md="7">
           <div class="chart-card">
@@ -89,7 +84,6 @@
         </VCol>
       </VRow>
 
-      <!-- Console log table -->
       <VRow>
         <VCol cols="12">
           <div class="chart-card">
@@ -102,12 +96,12 @@
                 <thead>
                   <tr>
                     <th>Timestamp</th>
-                    <th>Temp (°C)</th>
-                    <th>Pressure (hPa)</th>
-                    <th>Altitude (m)</th>
-                    <th>DHT Temp (°C)</th>
+                    <th>Temp ({{ unitStore.tempUnit() }})</th>
+                    <th>Pressure ({{ unitStore.pressUnit() }})</th>
+                    <th>Altitude ({{ unitStore.altUnit() }})</th>
+                    <th>DHT Temp ({{ unitStore.tempUnit() }})</th>
                     <th>Humidity (%)</th>
-                    <th>Heat Index (°C)</th>
+                    <th>Heat Index ({{ unitStore.tempUnit() }})</th>
                     <th>Soil (%)</th>
                   </tr>
                 </thead>
@@ -118,13 +112,13 @@
                     :class="{ 'row-new': i === 0 }"
                   >
                     <td class="ts-cell">{{ formatTs(row.timestamp) }}</td>
-                    <td>{{ row.temperature_c?.toFixed(1) }}</td>
-                    <td>{{ row.pressure_hpa?.toFixed(1) }}</td>
-                    <td>{{ row.altitude_m?.toFixed(1) }}</td>
-                    <td>{{ row.dht_temp_c?.toFixed(1) }}</td>
+                    <td>{{ dispTemp(row.temperature_c) }}</td>
+                    <td>{{ dispPress(row.pressure_hpa) }}</td>
+                    <td>{{ dispAlt(row.altitude_m) }}</td>
+                    <td>{{ dispTemp(row.dht_temp_c) }}</td>
                     <td>{{ row.humidity_pct?.toFixed(1) }}</td>
                     <td :class="heatIndexClass(row.heat_index_c)">
-                      {{ row.heat_index_c?.toFixed(1) }}
+                      {{ dispTemp(row.heat_index_c) }}
                     </td>
                     <td :class="soilClass(row.soil_moisture_pct)">
                       {{ row.soil_moisture_pct }}
@@ -150,6 +144,7 @@ import {
   nextTick,
 } from "vue";
 import { useAppStore } from "@/store/appStore";
+import { useUnitStore } from "@/store/unitStore";
 import { storeToRefs } from "pinia";
 import Highcharts from "highcharts";
 import more from "highcharts/highcharts-more";
@@ -158,18 +153,32 @@ Exporting(Highcharts);
 more(Highcharts);
 
 const store = useAppStore();
+const unitStore = useUnitStore();
 const { latest, history } = storeToRefs(store);
+const { units } = storeToRefs(unitStore);
 
 const loading = ref(false);
 const countdown = ref(5);
 const fluidMeterContainer = ref(null);
 
-let tempChart = null;
-let humChart = null;
-let pressChart = null;
-let fluidMeter = null;
-let refreshTimer = null;
-let countdownTimer = null;
+let tempChart = null,
+  humChart = null,
+  pressChart = null;
+let fluidMeter = null,
+  refreshTimer = null,
+  countdownTimer = null;
+
+function dispTemp(v) {
+  return v != null ? unitStore.convertTemp(v).toFixed(1) : "—";
+}
+function dispPress(v) {
+  return v != null
+    ? unitStore.convertPress(v).toFixed(units.value.pressBar ? 4 : 1)
+    : "—";
+}
+function dispAlt(v) {
+  return v != null ? unitStore.convertAlt(v).toFixed(1) : "—";
+}
 
 const HC_THEME = {
   chart: {
@@ -188,25 +197,29 @@ const HC_THEME = {
   },
   xAxis: {
     type: "datetime",
-    labels: { style: { color: "rgba(200,215,240,0.4)", fontSize: "10px" } },
+    labels: { style: { color: "rgba(200,215,240,0.65)", fontSize: "11px" } },
     gridLineColor: "rgba(255,255,255,0.05)",
-    lineColor: "rgba(255,255,255,0.08)",
-    tickColor: "rgba(255,255,255,0.08)",
+    lineColor: "rgba(255,255,255,0.1)",
+    tickColor: "rgba(255,255,255,0.1)",
   },
   yAxis: {
-    labels: { style: { color: "rgba(200,215,240,0.4)", fontSize: "10px" } },
+    labels: { style: { color: "rgba(200,215,240,0.65)", fontSize: "11px" } },
     gridLineColor: "rgba(255,255,255,0.05)",
-    title: { style: { color: "rgba(200,215,240,0.4)", fontSize: "11px" } },
+    title: { style: { color: "rgba(200,215,240,0.7)", fontSize: "12px" } },
   },
   tooltip: {
-    backgroundColor: "rgba(6,13,31,0.95)",
-    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(6,13,31,0.97)",
+    borderColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
-    style: { color: "#f0f4ff", fontSize: "12px" },
+    style: { color: "#f0f4ff", fontSize: "13px" },
     shared: true,
   },
   legend: {
-    itemStyle: { color: "rgba(200,215,240,0.5)", fontSize: "11px" },
+    itemStyle: {
+      color: "rgba(200,215,240,0.8)",
+      fontSize: "12px",
+      fontWeight: "500",
+    },
     itemHoverStyle: { color: "#f0f4ff" },
   },
   credits: { enabled: false },
@@ -214,7 +227,6 @@ const HC_THEME = {
 };
 
 const soilPct = computed(() => latest.value?.soil_moisture_pct ?? 0);
-
 const soilBucket = computed(() => {
   const p = soilPct.value;
   if (p < 20) return "very-dry";
@@ -222,38 +234,27 @@ const soilBucket = computed(() => {
   if (p < 70) return "optimal";
   return "wet";
 });
-
-const soilBadgeColor = computed(() => {
-  switch (soilBucket.value) {
-    case "very-dry":
-      return "#FF6B6B";
-    case "dry":
-      return "#F7B731";
-    case "optimal":
-      return "#26de81";
-    default:
-      return "#45B7D1";
-  }
-});
-
-const soilStatus = computed(() => {
-  switch (soilBucket.value) {
-    case "very-dry":
-      return "Very Dry";
-    case "dry":
-      return "Dry";
-    case "optimal":
-      return "Optimal";
-    default:
-      return "Wet";
-  }
-});
+const soilBadgeColor = computed(
+  () =>
+    ({
+      "very-dry": "#FF6B6B",
+      dry: "#F7B731",
+      optimal: "#26de81",
+      wet: "#45B7D1",
+    })[soilBucket.value],
+);
+const soilStatus = computed(
+  () =>
+    ({ "very-dry": "Very Dry", dry: "Dry", optimal: "Optimal", wet: "Wet" })[
+      soilBucket.value
+    ],
+);
 
 const kpiCards = computed(() => [
   {
     label: "DHT Temp",
-    value: latest.value?.dht_temp_c?.toFixed(1),
-    unit: "°C",
+    value: dispTemp(latest.value?.dht_temp_c),
+    unit: unitStore.tempUnit(),
     icon: "mdi-thermometer",
     color: "#FF6B6B",
   },
@@ -266,22 +267,22 @@ const kpiCards = computed(() => [
   },
   {
     label: "Pressure",
-    value: latest.value?.pressure_hpa?.toFixed(1),
-    unit: "hPa",
+    value: dispPress(latest.value?.pressure_hpa),
+    unit: unitStore.pressUnit(),
     icon: "mdi-gauge",
     color: "#45B7D1",
   },
   {
     label: "Altitude",
-    value: latest.value?.altitude_m?.toFixed(1),
-    unit: "m",
+    value: dispAlt(latest.value?.altitude_m),
+    unit: unitStore.altUnit(),
     icon: "mdi-image-filter-hdr",
     color: "#26de81",
   },
   {
     label: "Heat Index",
-    value: latest.value?.heat_index_c?.toFixed(1),
-    unit: "°C",
+    value: dispTemp(latest.value?.heat_index_c),
+    unit: unitStore.tempUnit(),
     icon: "mdi-fire",
     color: "#F7B731",
   },
@@ -297,56 +298,53 @@ const kpiCards = computed(() => [
 function toMs(ts) {
   return ts < 1e12 ? ts * 1000 : ts;
 }
-
-function buildSeriesData(rows, field) {
-  return [...rows]
-    .reverse()
-    .map((d) => [
-      toMs(d.timestamp),
-      d[field] != null ? parseFloat(d[field].toFixed(2)) : null,
-    ]);
+function buildSD(rows, field, conv) {
+  return [...rows].reverse().map((d) => {
+    const raw = d[field];
+    const val =
+      raw != null ? (conv ? conv(raw) : parseFloat(raw.toFixed(2))) : null;
+    return [toMs(d.timestamp), val];
+  });
 }
 
 function initCharts() {
   const rows = history.value;
   if (!rows.length) return;
-
+  const tU = unitStore.tempUnit(),
+    pU = unitStore.pressUnit(),
+    aU = unitStore.altUnit();
   if (tempChart) tempChart.destroy();
   tempChart = Highcharts.chart("hc-temp", {
     ...HC_THEME,
     title: { ...HC_THEME.title, text: "Temperature & Heat Index" },
-    yAxis: {
-      ...HC_THEME.yAxis,
-      title: { ...HC_THEME.yAxis.title, text: "°C" },
-    },
+    yAxis: { ...HC_THEME.yAxis, title: { ...HC_THEME.yAxis.title, text: tU } },
     series: [
       {
-        name: "BMP Temp",
+        name: `BMP Temp (${tU})`,
         type: "spline",
-        data: buildSeriesData(rows, "temperature_c"),
+        data: buildSD(rows, "temperature_c", unitStore.convertTemp),
         color: "#FF6B6B",
         lineWidth: 2,
         marker: { radius: 2 },
       },
       {
-        name: "Heat Index",
+        name: `Heat Index (${tU})`,
         type: "spline",
-        data: buildSeriesData(rows, "heat_index_c"),
+        data: buildSD(rows, "heat_index_c", unitStore.convertTemp),
         color: "#F7B731",
         lineWidth: 2,
         marker: { radius: 2 },
       },
       {
-        name: "DHT Temp",
+        name: `DHT Temp (${tU})`,
         type: "spline",
-        data: buildSeriesData(rows, "dht_temp_c"),
+        data: buildSD(rows, "dht_temp_c", unitStore.convertTemp),
         color: "#a29bfe",
         lineWidth: 2,
         marker: { radius: 2 },
       },
     ],
   });
-
   if (humChart) humChart.destroy();
   humChart = Highcharts.chart("hc-hum", {
     ...HC_THEME,
@@ -361,7 +359,7 @@ function initCharts() {
       {
         name: "Humidity",
         type: "area",
-        data: buildSeriesData(rows, "humidity_pct"),
+        data: buildSD(rows, "humidity_pct"),
         color: "#4ECDC4",
         fillColor: {
           linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
@@ -375,25 +373,24 @@ function initCharts() {
       },
     ],
   });
-
   if (pressChart) pressChart.destroy();
   pressChart = Highcharts.chart("hc-press", {
     ...HC_THEME,
     title: { ...HC_THEME.title, text: "Pressure & Altitude" },
     yAxis: [
-      { ...HC_THEME.yAxis, title: { ...HC_THEME.yAxis.title, text: "hPa" } },
+      { ...HC_THEME.yAxis, title: { ...HC_THEME.yAxis.title, text: pU } },
       {
         ...HC_THEME.yAxis,
-        title: { ...HC_THEME.yAxis.title, text: "m" },
+        title: { ...HC_THEME.yAxis.title, text: aU },
         opposite: true,
         gridLineWidth: 0,
       },
     ],
     series: [
       {
-        name: "Pressure",
+        name: `Pressure (${pU})`,
         type: "area",
-        data: buildSeriesData(rows, "pressure_hpa"),
+        data: buildSD(rows, "pressure_hpa", unitStore.convertPress),
         color: "#45B7D1",
         fillColor: {
           linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
@@ -407,9 +404,9 @@ function initCharts() {
         yAxis: 0,
       },
       {
-        name: "Altitude",
+        name: `Altitude (${aU})`,
         type: "spline",
-        data: buildSeriesData(rows, "altitude_m"),
+        data: buildSD(rows, "altitude_m", unitStore.convertAlt),
         color: "#26de81",
         lineWidth: 2,
         marker: { radius: 2 },
@@ -421,33 +418,58 @@ function initCharts() {
 
 function pushPoint(doc) {
   if (!tempChart || !humChart || !pressChart) return;
-  const x = toMs(doc.timestamp);
-  const shift = (tempChart.series[0].data.length || 0) >= 30;
-
-  tempChart.series[0].addPoint([x, doc.temperature_c ?? null], false, shift);
-  tempChart.series[1].addPoint([x, doc.heat_index_c ?? null], false, shift);
-  tempChart.series[2].addPoint([x, doc.dht_temp_c ?? null], true, shift);
+  const x = toMs(doc.timestamp),
+    shift = (tempChart.series[0].data.length || 0) >= 30;
+  tempChart.series[0].addPoint(
+    [
+      x,
+      doc.temperature_c != null
+        ? unitStore.convertTemp(doc.temperature_c)
+        : null,
+    ],
+    false,
+    shift,
+  );
+  tempChart.series[1].addPoint(
+    [
+      x,
+      doc.heat_index_c != null ? unitStore.convertTemp(doc.heat_index_c) : null,
+    ],
+    false,
+    shift,
+  );
+  tempChart.series[2].addPoint(
+    [x, doc.dht_temp_c != null ? unitStore.convertTemp(doc.dht_temp_c) : null],
+    true,
+    shift,
+  );
   humChart.series[0].addPoint([x, doc.humidity_pct ?? null], true, shift);
-  pressChart.series[0].addPoint([x, doc.pressure_hpa ?? null], false, shift);
-  pressChart.series[1].addPoint([x, doc.altitude_m ?? null], true, shift);
+  pressChart.series[0].addPoint(
+    [
+      x,
+      doc.pressure_hpa != null
+        ? unitStore.convertPress(doc.pressure_hpa)
+        : null,
+    ],
+    false,
+    shift,
+  );
+  pressChart.series[1].addPoint(
+    [x, doc.altitude_m != null ? unitStore.convertAlt(doc.altitude_m) : null],
+    true,
+    shift,
+  );
 }
 
-// ── Fluid Meter ───────────────────────────────────────────────
 function buildFluidMeter() {
   if (!fluidMeterContainer.value || typeof FluidMeter === "undefined") return;
-
-  // Wipe the old canvas so the new instance starts fresh
   fluidMeterContainer.value.innerHTML = "";
   fluidMeter = null;
-
-  const pct = soilPct.value;
   const fg = soilBadgeColor.value;
-  const bg = fg + "88";
-
   fluidMeter = new FluidMeter();
   fluidMeter.init({
     targetContainer: fluidMeterContainer.value,
-    fillPercentage: pct,
+    fillPercentage: soilPct.value,
     options: {
       size: 200,
       borderWidth: 12,
@@ -467,7 +489,7 @@ function buildFluidMeter() {
         horizontalSpeed: -150,
       },
       backgroundFluidLayer: {
-        fillStyle: bg,
+        fillStyle: fg + "88",
         angularSpeed: 140,
         maxAmplitude: 12,
         frequency: 40,
@@ -478,7 +500,6 @@ function buildFluidMeter() {
 }
 
 let lastTimestamp = null;
-
 async function fetchAll() {
   loading.value = true;
   await Promise.all([store.fetchLatest(), store.fetchHistory(30)]);
@@ -496,11 +517,9 @@ function startTimers() {
     if (latest.value && latest.value.timestamp !== lastTimestamp) {
       lastTimestamp = latest.value.timestamp;
       pushPoint(latest.value);
-      // If still in the same bucket, just update the level — no full rebuild needed
       if (fluidMeter) fluidMeter.setPercentage(soilPct.value);
     }
   }, 5000);
-
   countdownTimer = setInterval(() => {
     countdown.value = Math.max(0, countdown.value - 1);
   }, 1000);
@@ -508,8 +527,7 @@ function startTimers() {
 
 function formatTs(ts) {
   if (!ts) return "—";
-  const ms = ts < 1e12 ? ts * 1000 : ts;
-  return new Date(ms).toLocaleString("en-US", {
+  return new Date(ts < 1e12 ? ts * 1000 : ts).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -531,16 +549,13 @@ function soilClass(v) {
   return "cell-info";
 }
 
-// ── Watchers ──────────────────────────────────────────────────
-watch(soilBucket, () => {
-  nextTick(() => buildFluidMeter());
-});
+watch(soilBucket, () => nextTick(() => buildFluidMeter()));
+watch(units, () => nextTick(() => initCharts()), { deep: true });
 
 onMounted(async () => {
   await fetchAll();
   startTimers();
 });
-
 onBeforeUnmount(() => {
   clearInterval(refreshTimer);
   clearInterval(countdownTimer);
@@ -551,8 +566,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap");
-
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap");
 .dash-wrapper {
   min-height: 100vh;
   background: #060d1f;
@@ -561,9 +575,10 @@ onBeforeUnmount(() => {
 .dash-eyebrow {
   font-size: 11px;
   letter-spacing: 3px;
-  color: rgba(200, 215, 240, 0.35);
+  color: rgba(200, 215, 240, 0.45);
   text-transform: uppercase;
   margin-bottom: 4px;
+  font-weight: 500;
 }
 .dash-title {
   font-family: "Syne", sans-serif;
@@ -572,15 +587,15 @@ onBeforeUnmount(() => {
   color: #f0f4ff;
   letter-spacing: -1px;
 }
-
 .refresh-badge {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  color: rgba(200, 215, 240, 0.5);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(200, 215, 240, 0.7);
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 6px 14px;
 }
@@ -602,17 +617,16 @@ onBeforeUnmount(() => {
     transform: scale(0.8);
   }
 }
-
 .kpi-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-top: 2px solid var(--accent);
   border-radius: 12px;
   padding: 14px 16px;
   transition: all 0.3s;
 }
 .kpi-card:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   transform: translateY(-2px);
 }
 .kpi-icon {
@@ -627,21 +641,22 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 .kpi-unit {
-  font-size: 12px;
-  font-weight: 400;
-  color: rgba(200, 215, 240, 0.5);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(200, 215, 240, 0.65);
+  margin-left: 2px;
 }
 .kpi-label {
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: rgba(200, 215, 240, 0.4);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: rgba(200, 215, 240, 0.65);
   text-transform: uppercase;
-  margin-top: 5px;
+  margin-top: 6px;
 }
-
 .chart-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 16px;
   padding: 20px;
   height: 100%;
@@ -659,11 +674,10 @@ onBeforeUnmount(() => {
 }
 .chart-title {
   font-family: "Syne", sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #f0f4ff;
 }
-
 .fluid-card {
   display: flex;
   flex-direction: column;
@@ -679,14 +693,13 @@ onBeforeUnmount(() => {
   line-height: 0;
 }
 .soil-status-badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
 }
-
 .console-wrap {
   overflow-x: auto;
   max-height: 300px;
@@ -695,57 +708,57 @@ onBeforeUnmount(() => {
 .console-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
   font-family: "DM Mono", "Fira Mono", monospace;
 }
 .console-table th {
   text-align: left;
-  padding: 8px 12px;
-  color: rgba(200, 215, 240, 0.4);
-  font-size: 10px;
-  letter-spacing: 1px;
+  padding: 9px 13px;
+  color: rgba(200, 215, 240, 0.7);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   position: sticky;
   top: 0;
   background: #0d1829;
   white-space: nowrap;
 }
 .console-table td {
-  padding: 8px 12px;
-  color: rgba(200, 215, 240, 0.7);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 9px 13px;
+  color: rgba(200, 215, 240, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   white-space: nowrap;
 }
 .console-table tr:hover td {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
 }
 .row-new td {
   color: #f0f4ff;
 }
 .ts-cell {
-  color: rgba(200, 215, 240, 0.4) !important;
+  color: rgba(200, 215, 240, 0.5) !important;
 }
 .log-count {
-  font-size: 11px;
-  color: rgba(200, 215, 240, 0.35);
+  font-size: 12px;
+  color: rgba(200, 215, 240, 0.5);
   letter-spacing: 1px;
 }
-
 .cell-danger {
   color: #ff6b6b !important;
-  font-weight: 600;
+  font-weight: 700;
 }
 .cell-warn {
   color: #f7b731 !important;
-  font-weight: 600;
+  font-weight: 700;
 }
 .cell-ok {
   color: #26de81 !important;
-  font-weight: 600;
+  font-weight: 700;
 }
 .cell-info {
   color: #45b7d1 !important;
-  font-weight: 600;
+  font-weight: 700;
 }
 </style>

@@ -6,9 +6,7 @@
       <div class="cloud cloud-2"></div>
       <div class="cloud cloud-3"></div>
     </div>
-
     <VContainer class="home-content">
-      <!-- Hero -->
       <VRow justify="center" align="center" class="hero-row">
         <VCol cols="12" class="text-center">
           <div class="station-badge">ELET2415 · Live Readings</div>
@@ -16,36 +14,41 @@
             <span class="title-line">Weather</span>
             <span class="title-line accent">Station</span>
           </h1>
-
           <div class="hero-btns mt-8">
             <RouterLink :to="{ name: 'Dashboard' }">
               <button class="btn-primary">
-                <VIcon icon="mdi-view-dashboard" class="mr-2" />
-                Open Dashboard
+                <VIcon icon="mdi-view-dashboard" class="mr-2" />Open Dashboard
               </button>
             </RouterLink>
-
             <RouterLink :to="{ name: 'Analysis' }">
               <button class="btn-secondary">
-                <VIcon icon="mdi-chart-bar" class="mr-2" />
-                Data Analysis
+                <VIcon icon="mdi-chart-bar" class="mr-2" />Data Analysis
+              </button>
+            </RouterLink>
+            <RouterLink :to="{ name: 'Control' }">
+              <button class="btn-tertiary">
+                <VIcon icon="mdi-tune-variant" class="mr-2" />Control Panel
               </button>
             </RouterLink>
           </div>
         </VCol>
       </VRow>
 
-      <!-- Live stats strip -->
       <VRow justify="center" class="stats-strip mt-6">
         <VCol cols="12" md="10">
           <div class="stats-card">
             <div class="stat-item" v-for="stat in liveStats" :key="stat.label">
-              <VIcon :icon="stat.icon" class="stat-icon" :color="stat.color" />
+              <VIcon
+                :icon="stat.icon"
+                class="stat-icon"
+                :color="stat.color"
+                size="28"
+              />
               <div class="stat-info">
-                <span class="stat-value">
-                  {{ stat.value ?? "—" }}
-                  <span class="stat-unit">{{ stat.unit }}</span>
-                </span>
+                <span class="stat-value"
+                  >{{ stat.value ?? "—"
+                  }}<span class="stat-unit">{{ stat.unit }}</span></span
+                >
                 <span class="stat-label">{{ stat.label }}</span>
               </div>
             </div>
@@ -53,11 +56,10 @@
         </VCol>
       </VRow>
 
-      <!-- Feature cards -->
       <VRow justify="center" class="mt-10">
-        <VCol cols="12" md="10">
-          <div class="section-label">SYSTEM OVERVIEW</div>
-        </VCol>
+        <VCol cols="12" md="10"
+          ><div class="section-label">SYSTEM OVERVIEW</div></VCol
+        >
         <VCol
           v-for="card in featureCards"
           :key="card.title"
@@ -75,7 +77,6 @@
         </VCol>
       </VRow>
 
-      <!-- Sensor list -->
       <VRow justify="center" class="mt-8 mb-10">
         <VCol cols="12" md="10">
           <div class="section-label">CONNECTED SENSORS</div>
@@ -93,12 +94,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+import { onMounted, onBeforeUnmount, computed } from "vue";
 import { useAppStore } from "@/store/appStore";
+import { useUnitStore } from "@/store/unitStore";
 import { storeToRefs } from "pinia";
 
 const store = useAppStore();
+const unitStore = useUnitStore();
 const { latest } = storeToRefs(store);
+const { units } = storeToRefs(unitStore);
 
 let refreshTimer = null;
 onMounted(() => {
@@ -107,43 +111,48 @@ onMounted(() => {
 });
 onBeforeUnmount(() => clearInterval(refreshTimer));
 
-const liveStats = computed(() => [
-  {
-    label: "DHT Temp",
-    value: latest.value?.dht_temp_c?.toFixed(1),
-    unit: "°C",
-    icon: "mdi-thermometer",
-    color: "#FF6B6B",
-  },
-  {
-    label: "Humidity",
-    value: latest.value?.humidity_pct?.toFixed(1),
-    unit: "%",
-    icon: "mdi-water-percent",
-    color: "#4ECDC4",
-  },
-  {
-    label: "Pressure",
-    value: latest.value?.pressure_hpa?.toFixed(1),
-    unit: "hPa",
-    icon: "mdi-gauge",
-    color: "#45B7D1",
-  },
-  {
-    label: "Heat Index",
-    value: latest.value?.heat_index_c?.toFixed(1),
-    unit: "°C",
-    icon: "mdi-fire",
-    color: "#F7B731",
-  },
-  {
-    label: "Soil Moisture",
-    value: latest.value?.soil_moisture_pct,
-    unit: "%",
-    icon: "mdi-sprout",
-    color: "#26de81",
-  },
-]);
+const liveStats = computed(() => {
+  const l = latest.value;
+  return [
+    {
+      label: "DHT Temp",
+      value: unitStore.convertTemp(l?.dht_temp_c)?.toFixed(1),
+      unit: unitStore.tempUnit(),
+      icon: "mdi-thermometer",
+      color: "#FF6B6B",
+    },
+    {
+      label: "Humidity",
+      value: l?.humidity_pct?.toFixed(1),
+      unit: "%",
+      icon: "mdi-water-percent",
+      color: "#4ECDC4",
+    },
+    {
+      label: "Pressure",
+      value: unitStore
+        .convertPress(l?.pressure_hpa)
+        ?.toFixed(units.value.pressBar ? 4 : 1),
+      unit: unitStore.pressUnit(),
+      icon: "mdi-gauge",
+      color: "#45B7D1",
+    },
+    {
+      label: "Heat Index",
+      value: unitStore.convertTemp(l?.heat_index_c)?.toFixed(1),
+      unit: unitStore.tempUnit(),
+      icon: "mdi-fire",
+      color: "#F7B731",
+    },
+    {
+      label: "Soil Moisture",
+      value: l?.soil_moisture_pct,
+      unit: "%",
+      icon: "mdi-sprout",
+      color: "#26de81",
+    },
+  ];
+});
 
 const featureCards = [
   {
@@ -167,6 +176,13 @@ const featureCards = [
     color: "#26de81",
     bg: "rgba(38,222,129,0.12)",
   },
+  {
+    title: "Control Panel",
+    desc: "Toggle display units and push preferences live to the TFT screen.",
+    icon: "mdi-tune-variant",
+    color: "#F7B731",
+    bg: "rgba(247,183,49,0.12)",
+  },
 ];
 
 const sensors = [
@@ -178,12 +194,10 @@ const sensors = [
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap");
-
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap");
 * {
   box-sizing: border-box;
 }
-
 .home-wrapper {
   min-height: 100vh;
   position: relative;
@@ -191,8 +205,6 @@ const sensors = [
   overflow: hidden;
   background: #060d1f;
 }
-
-/* ── Sky ── */
 .sky {
   position: fixed;
   inset: 0;
@@ -231,18 +243,8 @@ const sensors = [
       transparent 100%
     ),
     radial-gradient(
-      1px 1px at 20% 80%,
-      rgba(255, 255, 255, 0.4) 0%,
-      transparent 100%
-    ),
-    radial-gradient(
       1px 1px at 45% 70%,
       rgba(255, 255, 255, 0.6) 0%,
-      transparent 100%
-    ),
-    radial-gradient(
-      1px 1px at 90% 85%,
-      rgba(255, 255, 255, 0.3) 0%,
       transparent 100%
     );
 }
@@ -284,8 +286,6 @@ const sensors = [
     transform: translateX(110vw);
   }
 }
-
-/* ── Content ── */
 .home-content {
   position: relative;
   z-index: 1;
@@ -294,12 +294,10 @@ const sensors = [
 .hero-row {
   min-height: 40vh;
 }
-
 .station-badge {
   display: inline-block;
-  font-family: "DM Sans", sans-serif;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 3px;
   color: #4ecdc4;
   border: 1px solid rgba(78, 205, 196, 0.3);
@@ -307,7 +305,6 @@ const sensors = [
   padding: 5px 16px;
   margin-bottom: 24px;
 }
-
 .hero-title {
   font-family: "Syne", sans-serif;
   font-size: clamp(52px, 10vw, 96px);
@@ -317,38 +314,25 @@ const sensors = [
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
   letter-spacing: -2px;
 }
 .title-line.accent {
   color: transparent;
   -webkit-text-stroke: 2px #4ecdc4;
 }
-
-.hero-sub {
-  font-family: "DM Sans", sans-serif;
-  font-size: 16px;
-  font-weight: 300;
-  color: rgba(200, 215, 240, 0.6);
-  margin-top: 16px;
-  letter-spacing: 0.5px;
-}
-
-/* ── Buttons ── */
 .hero-btns {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   justify-content: center;
   flex-wrap: wrap;
 }
-
 .btn-primary {
   background: linear-gradient(135deg, #4ecdc4, #45b7d1);
   color: #060d1f;
   font-family: "DM Sans", sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 15px;
-  padding: 14px 32px;
+  padding: 14px 28px;
   border-radius: 50px;
   border: none;
   cursor: pointer;
@@ -361,15 +345,13 @@ const sensors = [
   transform: translateY(-2px);
   box-shadow: 0 0 50px rgba(78, 205, 196, 0.5);
 }
-
-/* Outlined ghost button for Analysis */
 .btn-secondary {
   background: transparent;
   color: #f0f4ff;
   font-family: "DM Sans", sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 15px;
-  padding: 13px 32px;
+  padding: 13px 28px;
   border-radius: 50px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
@@ -384,11 +366,30 @@ const sensors = [
   box-shadow: 0 0 30px rgba(247, 183, 49, 0.15);
   transform: translateY(-2px);
 }
-
-/* ── Stats strip ── */
+.btn-tertiary {
+  background: transparent;
+  color: #f7b731;
+  font-family: "DM Sans", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 13px 28px;
+  border-radius: 50px;
+  border: 1px solid rgba(247, 183, 49, 0.4);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(6px);
+}
+.btn-tertiary:hover {
+  background: rgba(247, 183, 49, 0.1);
+  border-color: rgba(247, 183, 49, 0.7);
+  box-shadow: 0 0 30px rgba(247, 183, 49, 0.2);
+  transform: translateY(-2px);
+}
 .stats-card {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 20px;
   display: flex;
   align-items: center;
@@ -403,9 +404,6 @@ const sensors = [
   align-items: center;
   gap: 12px;
 }
-.stat-icon {
-  font-size: 28px;
-}
 .stat-info {
   display: flex;
   flex-direction: column;
@@ -418,30 +416,27 @@ const sensors = [
   line-height: 1;
 }
 .stat-unit {
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(200, 215, 240, 0.5);
-  margin-left: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(200, 215, 240, 0.65);
+  margin-left: 3px;
 }
 .stat-label {
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: rgba(200, 215, 240, 0.4);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: rgba(200, 215, 240, 0.6);
   text-transform: uppercase;
-  margin-top: 3px;
+  margin-top: 4px;
 }
-
-/* ── Section label ── */
 .section-label {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 3px;
-  color: rgba(200, 215, 240, 0.35);
+  color: rgba(200, 215, 240, 0.4);
   margin-bottom: 20px;
   text-transform: uppercase;
 }
-
-/* ── Feature cards ── */
 .feature-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -451,7 +446,7 @@ const sensors = [
   transition: all 0.3s ease;
 }
 .feature-card:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border-color: rgba(78, 205, 196, 0.2);
   transform: translateY(-4px);
 }
@@ -466,18 +461,18 @@ const sensors = [
 }
 .feature-title {
   font-family: "Syne", sans-serif;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: #f0f4ff;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  line-height: 1.3;
 }
 .feature-desc {
-  font-size: 13px;
-  color: rgba(200, 215, 240, 0.5);
-  line-height: 1.6;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(200, 215, 240, 0.65);
+  line-height: 1.7;
 }
-
-/* ── Sensor chips ── */
 .sensor-grid {
   display: flex;
   flex-wrap: wrap;
@@ -488,9 +483,9 @@ const sensors = [
   align-items: center;
   gap: 8px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 50px;
-  padding: 8px 16px;
+  padding: 9px 18px;
 }
 .sensor-dot {
   width: 8px;
@@ -500,12 +495,13 @@ const sensors = [
 }
 .sensor-name {
   font-family: "Syne", sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #f0f4ff;
 }
 .sensor-type {
-  font-size: 12px;
-  color: rgba(200, 215, 240, 0.4);
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(200, 215, 240, 0.6);
 }
 </style>

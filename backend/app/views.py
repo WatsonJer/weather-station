@@ -99,7 +99,35 @@ def get_history():
     docs  = mongo.getHistory(limit)
     return jsonify(docs), 200
    
-
+@app.route('/api/control/units', methods=['POST'])
+def control_units():
+    '''Receives unit preferences from the frontend and forwards them
+    to the ESP32 via MQTT on its subscribe topic.'''
+    try:
+        payload = request.get_json(force=True)
+ 
+        if not payload or payload.get('cmd') != 'set_units':
+            return jsonify({"error": "Invalid payload"}), 400
+ 
+        # Build the MQTT message string the ESP32 callback will parse
+        import json
+        msg = json.dumps({
+            "cmd":       "set_units",
+            "temp_f":    int(payload.get("temp_f",    0)),
+            "press_bar": int(payload.get("press_bar", 0)),
+            "alt_ft":    int(payload.get("alt_ft",    0)),
+        })
+ 
+        # Publish to the ESP32's subscribe topic
+        Mqtt.publish("620172489_sub", msg)
+ 
+        print(f"[CTRL] Published unit command: {msg}")
+        return jsonify({"status": "ok", "published": msg}), 200
+ 
+    except Exception as e:
+        print(f"control_units error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+ 
 
 @app.route('/api/file/get/<filename>', methods=['GET']) 
 def get_images(filename):   

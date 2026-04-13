@@ -20,6 +20,12 @@ const routes = [
     component: () => import("@/views/Analysis.vue"),
     meta: { transition: "fade" },
   },
+  {
+    path: "/control",
+    name: "Control",
+    component: () => import("@/views/Control.vue"),
+    meta: { transition: "fade" },
+  },
 ];
 
 const router = createRouter({

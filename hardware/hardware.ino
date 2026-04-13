@@ -40,9 +40,9 @@
 #define TFT_MISO  19
 
 //--Sensor Pins -------------------
-#define DHT_PIN 32
+#define DHT_PIN 4
 #define DHT_TYPE DHT22
-#define SOIL_PIN 34
+#define SOIL_PIN 32
 
 #define SOIL_DRY_VALUE 2200
 #define SOIL_WET_VALUE 550
@@ -81,6 +81,9 @@ struct WeatherData {
 WeatherData data;
 unsigned long lastReadTime = 0;
 bool displayInitialized = false;
+bool unitTempF    = false;   // false = °C,  true = °F
+bool unitPressBar = false;   // false = hPa, true = bar
+bool unitAltFt    = false;   // false = m,   true = ft
 
 // MQTT CLIENT CONFIG  
 static const char* pubtopic      = "620172489";                    // Add your ID number here
@@ -108,6 +111,7 @@ void readSensors(WeatherData &d);
 void drawHeader();
 int  readSoilPercent(int rawADC);
 uint16_t soilColour(int pct);
+volatile bool unitChangeRequested = false;
 
 void checkHEAP(const char* Name);   // RETURN REMAINING HEAP SIZE FOR A TASK
 void initMQTT(void);                // CONFIG AND INITIALIZE MQTT PROTOCOL
@@ -132,7 +136,7 @@ void setup() {
   Serial.println("\n=== ESP32 Weather Station ===");
 
   // I2C for BMP280
-  Wire.begin(25, 33);
+  Wire.begin(21, 22);
 
   // BMP280 Init
   if (!bmp.begin(0x76)) { 
@@ -186,9 +190,18 @@ void vButtonCheck(void* pvParameters) {
 
 void callback(char* topic, byte* payload, unsigned int length) {
     String msg = "";
-    for (int i = 0; i < length; i++) msg += (char)payload[i];
-    Serial.printf("[MQTT] Message on %s: %s\n", topic, msg.c_str());
-    //
+    for (unsigned int i = 0; i < length; i++) msg += (char)payload[i];
+
+    StaticJsonDocument<256> doc;
+    DeserializationError err = deserializeJson(doc, msg);
+
+    if (!err && doc["cmd"] == "set_units") {
+        unitTempF    = (doc["temp_f"].as<int>()    == 1);
+        unitPressBar = (doc["press_bar"].as<int>() == 1);
+        unitAltFt    = (doc["alt_ft"].as<int>()    == 1);
+        unitChangeRequested = true;  // signal vUpdate to redraw
+        Serial.println("[CTRL] Unit change queued.");
+    }
 }
 
 void publish(const WeatherData &d, unsigned long timestamp) {
@@ -216,13 +229,18 @@ void publish(const WeatherData &d, unsigned long timestamp) {
 
 void vUpdate(void* pvParameters) {
     configASSERT(((uint32_t)pvParameters) == 1);
-
     for (;;) {
         if (mqtt.connected()) {
+
+            // Handle unit change request from callback
+            if (unitChangeRequested) {
+                unitChangeRequested = false;
+                drawStaticUI();       // safe — only vUpdate touches the display
+            }
+
             readSensors(data);
             updateDisplay(data);
 
-            // Get NTP timestamp
             time_t now;
             time(&now);
             publish(data, (unsigned long)now);
@@ -232,7 +250,7 @@ void vUpdate(void* pvParameters) {
             Serial.printf("DHT  Temp: %.1fC  Hum: %.1f%%  HeatIdx: %.1fC\n",
                           data.dht_temp_c, data.humidity_pct, data.heat_index_c);
             Serial.printf("Soil: %d%%\n\n", data.soil_moisture_pct);
-            Serial.printf("Raw ADC: %d\n\n", analogRead(SOIL_PIN));
+            Serial.printf("Raw ADC: %d\n\n", analogRead(SOIL_PIN)); 
         }
         vTaskDelay(3000 / portTICK_PERIOD_MS);
     }
@@ -301,134 +319,167 @@ void drawHeader() {
 }
 
 void drawStaticUI() {
-  if (!displayInitialized) return;
-
-  tft.fillScreen(CLR_BG);
-  drawHeader();
-
-  // Vertical divider between columns
-  tft.drawFastVLine(160, 45, 185, CLR_DIVIDER);
-
-  // Section headings
-  tft.setTextSize(1);
-  tft.setTextColor(ILI9341_CYAN);
-  tft.setCursor(8,   50); tft.print("-- BMP280 --");
-  tft.setCursor(168, 50); tft.print("-- AM2302 --");
-  tft.setCursor(168, 160); tft.print("-- SOIL --");
-
-  // Static labels
-  tft.setTextColor(CLR_LABEL);
-
-  // Left column – BMP280
-  tft.setCursor(8,  68);  tft.print("Air Temp   :");
-  tft.setCursor(8,  98);  tft.print("Pressure   :");
-  tft.setCursor(8,  128); tft.print("Altitude   :");
-
-  // Right column – AM2302
-  tft.setCursor(168, 68);  tft.print("Humidity   :");
-  tft.setCursor(168, 98);  tft.print("DHT Temp   :");
-  tft.setCursor(168, 128); tft.print("Heat Index :");
-
-  // Bottom – Soil
-  tft.setCursor(168, 175); tft.print("Moisture   :");
+    if (!displayInitialized) return;
+ 
+    tft.fillScreen(CLR_BG);
+    drawHeader();
+ 
+    tft.drawFastVLine(160, 45, 185, CLR_DIVIDER);
+ 
+    tft.setTextSize(1);
+    tft.setTextColor(ILI9341_CYAN);
+    tft.setCursor(8,   50); tft.print("-- BMP280 --");
+    tft.setCursor(168, 50); tft.print("-- AM2302 --");
+    tft.setCursor(168, 160); tft.print("-- SOIL --");
+ 
+    tft.setTextColor(CLR_LABEL);
+ 
+    tft.setCursor(8,  68);
+    tft.print(unitTempF ? "Air Temp(F):" : "Air Temp   :");
+ 
+    tft.setCursor(8,  98);
+    tft.print(unitPressBar ? "Press(bar) :" : "Pressure   :");
+ 
+    tft.setCursor(8,  128);
+    tft.print(unitAltFt ? "Alt (ft)   :" : "Altitude   :");
+ 
+    tft.setCursor(168, 68);  tft.print("Humidity   :");
+    tft.setCursor(168, 98);
+    tft.print(unitTempF ? "DHT Tmp(F) :" : "DHT Temp   :");
+    tft.setCursor(168, 128);
+    tft.print(unitTempF ? "HeatIdx(F) :" : "Heat Index :");
+ 
+    tft.setCursor(168, 175); tft.print("Moisture   :");
 }
 
 void updateDisplay(const WeatherData &d) {
-  if (!displayInitialized) return;
-
-  // Wider/taller clear area to match size 2 text (12px tall, ~14px per char)
-  auto clearField = [&](int x, int y) {
-    tft.fillRect(x, y, 100, 16, CLR_BG);
-  };
-
-  // -- BMP280 values (left column) --
-  if (d.bmp_ok) {
-    clearField(8, 80);
-    tft.setCursor(8, 80); 
+    if (!displayInitialized) return;
+ 
+    auto clearField = [&](int x, int y) {
+        tft.fillRect(x, y, 120, 16, CLR_BG);
+    };
+ 
+    
+    if (d.bmp_ok) {
+ 
+        // Temperature
+        clearField(8, 80);
+        tft.setCursor(8, 80);
+        tft.setTextSize(2);
+        tft.setTextColor(CLR_VALUE);
+        if (unitTempF) {
+            float tf = d.temperature_c * 9.0f / 5.0f + 32.0f;
+            tft.print(tf, 1);
+            tft.setTextColor(CLR_UNIT);
+            tft.print(" F");
+        } else {
+            tft.print(d.temperature_c, 1);
+            tft.setTextColor(CLR_UNIT);
+            tft.print(" C");
+        }
+ 
+        // Pressure
+        clearField(8, 110);
+        tft.setCursor(8, 110);
+        tft.setTextSize(2);
+        tft.setTextColor(CLR_VALUE);
+        if (unitPressBar) {
+            float bar = d.pressure_hpa / 1000.0f;
+            tft.print(bar, 3);
+            tft.setTextColor(CLR_UNIT);
+            tft.print("bar");
+        } else {
+            tft.print(d.pressure_hpa, 1);
+            tft.setTextColor(CLR_UNIT);
+            tft.print("hPa");
+        }
+ 
+        // Altitude
+        clearField(8, 140);
+        tft.setCursor(8, 140);
+        tft.setTextSize(2);
+        tft.setTextColor(CLR_VALUE);
+        if (unitAltFt) {
+            float ft = d.altitude_m * 3.28084f;
+            tft.print(ft, 1);
+            tft.setTextColor(CLR_UNIT);
+            tft.print(" ft");
+        } else {
+            tft.print(d.altitude_m, 1);
+            tft.setTextColor(CLR_UNIT);
+            tft.print(" m");
+        }
+ 
+    } else {
+        tft.setTextColor(CLR_ERROR);
+        tft.setTextSize(2);
+        tft.setCursor(8, 80);  tft.print("BMP280");
+        tft.setCursor(8, 100); tft.print("ERROR");
+    }
+ 
+    // -- AM2302 values (right column) --
+    if (d.dht_ok) {
+ 
+        clearField(168, 80);
+        tft.setCursor(168, 80);
+        tft.setTextSize(2);
+        tft.setTextColor(CLR_VALUE);
+        tft.print(d.humidity_pct, 1);
+        tft.setTextColor(CLR_UNIT);
+        tft.print(" %");
+ 
+        // DHT Temp
+        clearField(168, 110);
+        tft.setCursor(168, 110);
+        tft.setTextSize(2);
+        tft.setTextColor(CLR_VALUE);
+        if (unitTempF) {
+            float tf = d.dht_temp_c * 9.0f / 5.0f + 32.0f;
+            tft.print(tf, 1);
+            tft.setTextColor(CLR_UNIT);
+            tft.print(" F");
+        } else {
+            tft.print(d.dht_temp_c, 1);
+            tft.setTextColor(CLR_UNIT);
+            tft.print(" C");
+        }
+ 
+        // Heat Index
+        clearField(168, 140);
+        tft.setCursor(168, 140);
+        tft.setTextSize(2);
+        float hiDisplay = unitTempF
+            ? (d.heat_index_c * 9.0f / 5.0f + 32.0f)
+            : d.heat_index_c;
+        float hiThreshWarn   = unitTempF ? 80.6f : 27.0f;   
+        float hiThreshDanger = unitTempF ? 89.6f : 32.0f;   
+        uint16_t hiColour = CLR_VALUE;
+        if (hiDisplay >= hiThreshDanger) hiColour = CLR_ERROR;
+        else if (hiDisplay >= hiThreshWarn) hiColour = CLR_WARN;
+        tft.setTextColor(hiColour);
+        tft.print(hiDisplay, 1);
+        tft.setTextColor(CLR_UNIT);
+        tft.print(unitTempF ? " F" : " C");
+ 
+    } else {
+        tft.setTextColor(CLR_ERROR);
+        tft.setTextSize(2);
+        tft.setCursor(168, 80);  tft.print("DHT");
+        tft.setCursor(168, 100); tft.print("ERROR");
+    }
+ 
+    tft.fillRect(168, 190, 148, 22, CLR_BG);
+    tft.setCursor(168, 190);
     tft.setTextSize(2);
-    tft.setTextColor(CLR_VALUE);
-    tft.print(d.temperature_c, 1);
-    tft.setTextColor(CLR_UNIT); 
-    tft.print(" C");
-
-    clearField(8, 110);
-    tft.setCursor(8, 110); 
-    tft.setTextSize(2);
-    tft.setTextColor(CLR_VALUE);
-    tft.print(d.pressure_hpa, 1);
-    tft.setTextColor(CLR_UNIT); 
-    tft.print("hPa");
-
-    clearField(8, 140);
-    tft.setCursor(8, 140); 
-    tft.setTextSize(2);
-    tft.setTextColor(CLR_VALUE);
-    tft.print(d.altitude_m, 1);
-    tft.setTextColor(CLR_UNIT); 
-    tft.print(" m");
-
-  } else {
-    tft.setTextColor(CLR_ERROR); 
-    tft.setTextSize(2);
-    tft.setCursor(8, 80); 
-    tft.print("BMP280");
-    tft.setCursor(8, 100); 
-    tft.print("ERROR");
-  }
-
-  // -- AM2302 values (right column) --
-  if (d.dht_ok) {
-    clearField(168, 80);
-    tft.setCursor(168, 80); 
-    tft.setTextSize(2);
-    tft.setTextColor(CLR_VALUE);
-    tft.print(d.humidity_pct, 1);
-    tft.setTextColor(CLR_UNIT); 
+    tft.setTextColor(soilColour(d.soil_moisture_pct));
+    tft.print(d.soil_moisture_pct);
+    tft.setTextColor(CLR_UNIT);
     tft.print(" %");
-
-    clearField(168, 110);
-    tft.setCursor(168, 110); 
-    tft.setTextSize(2);
-    tft.setTextColor(CLR_VALUE);
-    tft.print(d.dht_temp_c, 1);
-    tft.setTextColor(CLR_UNIT); 
-    tft.print(" C");
-
-    clearField(168, 140);
-    tft.setCursor(168, 140); 
-    tft.setTextSize(2);
-    uint16_t hiColour = CLR_VALUE;
-    if (d.heat_index_c >= 32.0) hiColour = CLR_ERROR;
-    else if (d.heat_index_c >= 27.0) hiColour = CLR_WARN;
-    tft.setTextColor(hiColour);
-    tft.print(d.heat_index_c, 1);
-    tft.setTextColor(CLR_UNIT); 
-    tft.print(" C");
-
-  } else {
-    tft.setTextColor(CLR_ERROR); 
-    tft.setTextSize(2);
-    tft.setCursor(168, 80); 
-    tft.print("DHT");
-    tft.setCursor(168, 100); 
-    tft.print("ERROR");
-  }
-
-  // -- Soil Moisture bar + value --
-  tft.fillRect(168, 190, 148, 22, CLR_BG);
-
-  tft.setCursor(168, 190);
-  tft.setTextSize(2);
-  tft.setTextColor(soilColour(d.soil_moisture_pct));
-  tft.print(d.soil_moisture_pct);
-  tft.setTextColor(CLR_UNIT); 
-  tft.print(" %");
-
-  // Progress bar
-  int barLen = map(d.soil_moisture_pct, 0, 100, 0, 148);
-  barLen = constrain(barLen, 0, 148);
-  tft.fillRect(168, 215, 148, 10, CLR_DIVIDER);
-  tft.fillRect(168, 215, barLen, 10, soilColour(d.soil_moisture_pct));
+ 
+    int barLen = map(d.soil_moisture_pct, 0, 100, 0, 148);
+    barLen = constrain(barLen, 0, 148);
+    tft.fillRect(168, 215, 148, 10, CLR_DIVIDER);
+    tft.fillRect(168, 215, barLen, 10, soilColour(d.soil_moisture_pct));
 }
 
 uint16_t soilColour(int pct) {
